@@ -167,9 +167,12 @@ except ImportError as e:
 # Embedded configuration (auto-generated)
 EMBEDDED_CONFIG = {json.dumps(config, indent=4)}
 
+print("="*70)
 print("Blockchain RAT Agent - Standalone Version")
+print("="*70)
 print(f"Agent Wallet: {{EMBEDDED_CONFIG.get('private_key', 'N/A')[:10]}}...")
 print(f"Contract: {{EMBEDDED_CONFIG.get('contract_address', 'N/A')}}")
+print("="*70)
 print()
 
 # ============================================================================

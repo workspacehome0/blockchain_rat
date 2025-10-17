@@ -93,8 +93,8 @@ class Agent:
         self.config['agent_address'] = self.blockchain.address
         print(f"Connected to blockchain: {self.blockchain.address}")
     
-    def register(self):
-        """Register agent on blockchain"""
+    def register(self, admin_address=None):
+        """Register agent on blockchain and auto-create session"""
         if not self.blockchain:
             self.connect_blockchain()
         
@@ -105,6 +105,26 @@ class Agent:
         print("Registering agent on blockchain...")
         receipt = self.blockchain.register_agent(public_key_hex)
         print(f"Agent registered successfully")
+        print(f"Agent address: {self.blockchain.address}")
+        
+        # Auto-create session with admin if provided
+        if admin_address:
+            print(f"\nCreating session with admin: {admin_address}")
+            try:
+                # Import Account to create session from agent side
+                from eth_account import Account
+                from web3 import Web3
+                
+                # Create a temporary admin client to create session
+                # Note: Agent cannot create session, only admin can
+                print("\n⚠️  IMPORTANT: Session must be created by admin!")
+                print(f"\nAdmin should run in GUI:")
+                print(f"  1. Click 'New Session'")
+                print(f"  2. Enter agent address: {self.blockchain.address}")
+                print(f"\nOr run this command as admin:")
+                print(f"  python -c \"from shared.blockchain_client import BlockchainClient; bc = BlockchainClient({{'rpc_url': '{self.config['rpc_url']}', 'contract_address': '{self.config['contract_address']}', 'private_key': 'ADMIN_PRIVATE_KEY'}}); print('Session ID:', bc.create_session('{self.blockchain.address}'))\"")
+            except Exception as e:
+                print(f"Note: {e}")
         
         return receipt
     
@@ -332,11 +352,39 @@ def main():
         # Register agent
         agent.register()
         agent.save_config(args.config)
-        print(f"Agent registered. Address: {agent.blockchain.address}")
-        print(f"Configuration saved to: {args.config}")
+        print()
+        print("="*70)
+        print("✓ AGENT REGISTERED SUCCESSFULLY")
+        print("="*70)
+        print(f"Agent Address: {agent.blockchain.address}")
+        print(f"Config Saved: {args.config}")
+        print()
+        print("NEXT STEP: Create a session")
+        print("="*70)
+        print()
+        print("Option 1: Use Admin GUI")
+        print("  1. Open administrator GUI")
+        print("  2. Click 'New Session'")
+        print(f"  3. Enter agent address: {agent.blockchain.address}")
+        print()
+        print("Option 2: Use Command Line")
+        print(f"  python tools/auto_create_sessions.py --agent {agent.blockchain.address}")
+        print()
+        print("After session is created, start the agent with:")
+        print("  python agent.py --session SESSION_ID")
+        print()
+        print("="*70)
     
     elif args.session:
         # Start agent with session
+        print()
+        print("="*70)
+        print("STARTING AGENT")
+        print("="*70)
+        print(f"Session ID: {args.session}")
+        print(f"Agent Address: {agent.blockchain.address}")
+        print("="*70)
+        print()
         agent.start(args.session)
     
     else:
