@@ -58,9 +58,15 @@ class AdministratorGUI(QMainWindow):
         # Load admin keys after UI is initialized
         self.load_keys()
         
-        # Setup timer for polling
+        # Setup timer for polling messages
         self.poll_timer = QTimer()
         self.poll_timer.timeout.connect(self.poll_messages)
+        
+        # Setup timer for monitoring new agent registrations
+        self.agent_monitor_timer = QTimer()
+        self.agent_monitor_timer.timeout.connect(self.monitor_new_agents)
+        self.last_checked_block = 0
+        self.known_agents = set()  # Track agents we've already processed
         
     def init_ui(self):
         """Initialize the user interface"""
@@ -352,6 +358,10 @@ class AdministratorGUI(QMainWindow):
         try:
             self.save_config()
             
+            # Stop existing timers
+            if hasattr(self, 'agent_monitor_timer'):
+                self.agent_monitor_timer.stop()
+            
             self.blockchain = BlockchainClient({
                 'rpc_url': self.rpc_input.text(),
                 'private_key': self.private_key_input.text(),
@@ -375,6 +385,12 @@ class AdministratorGUI(QMainWindow):
             
             # Load existing sessions
             self.refresh_sessions()
+            
+            # Start monitoring for new agent registrations
+            self.log("[DEBUG] Starting agent registration monitor...")
+            self.last_checked_block = self.blockchain.w3.eth.block_number
+            self.agent_monitor_timer.start(15000)  # Check every 15 seconds
+            self.log("[INFO] Auto-session creation enabled - will detect new agents automatically")
             
         except Exception as e:
             QMessageBox.critical(self, "Connection Error", f"Failed to connect: {str(e)}")
@@ -558,8 +574,86 @@ Agent Messages: {session['agent_seq_num']}
             QMessageBox.critical(self, "Error", f"Failed to send command: {str(e)}")
             self.log(f"Command send error: {e}")
     
+    def monitor_new_agents(self):
+        """Monitor blockchain for new agent registrations and auto-create sessions"""
+        if not self.blockchain:
+            return
+        
+        try:
+            current_block = self.blockchain.w3.eth.block_number
+            
+            if current_block <= self.last_checked_block:
+                return  # No new blocks
+            
+            self.log(f"[DEBUG] Checking blocks {self.last_checked_block} to {current_block} for new agents...")
+            
+            # Get AgentRegistered events
+            try:
+                event_filter = self.blockchain.contract.events.AgentRegistered.create_filter(
+                    fromBlock=self.last_checked_block + 1,
+                    toBlock=current_block
+                )
+                
+                events = event_filter.get_all_entries()
+                
+                if len(events) > 0:
+                    self.log(f"[INFO] Found {len(events)} new agent registration(s)!")
+                
+                for event in events:
+                    agent_address = event['args']['agent']
+                    
+                    self.log(f"[INFO] New agent detected: {agent_address}")
+                    
+                    # Check if we already created a session for this agent
+                    if agent_address in self.known_agents:
+                        self.log(f"[DEBUG] Agent {agent_address} already processed, skipping")
+                        continue
+                    
+                    # Check if session already exists
+                    existing_sessions = self.blockchain.get_admin_sessions()
+                    agent_has_session = False
+                    
+                    for session_id in existing_sessions:
+                        session = self.blockchain.get_session(session_id)
+                        if session['agent'].lower() == agent_address.lower():
+                            agent_has_session = True
+                            self.log(f"[DEBUG] Agent {agent_address} already has a session")
+                            break
+                    
+                    if not agent_has_session:
+                        # Auto-create session
+                        self.log(f"[INFO] Auto-creating session for agent {agent_address}...")
+                        try:
+                            session_id = self.blockchain.create_session(agent_address)
+                            self.log(f"[SUCCESS] ✓ Session auto-created: {session_id}")
+                            self.log(f"[INFO] Agent can now start with: python agent.py --session {session_id}")
+                            
+                            # Refresh session list
+                            self.refresh_sessions()
+                            
+                            # Show notification
+                            QMessageBox.information(
+                                self,
+                                "New Agent Detected",
+                                f"Automatically created session for new agent!\n\nAgent: {agent_address}\n\nSession ID: {session_id}\n\nThe agent can now start with:\npython agent.py --session {session_id}"
+                            )
+                        except Exception as e:
+                            self.log(f"[ERROR] Failed to auto-create session: {e}")
+                    
+                    # Mark as processed
+                    self.known_agents.add(agent_address)
+                
+            except Exception as e:
+                self.log(f"[DEBUG] Event filter error (normal if no events): {e}")
+            
+            # Update last checked block
+            self.last_checked_block = current_block
+            
+        except Exception as e:
+            self.log(f"[ERROR] Agent monitoring error: {e}")
+    
     def poll_messages(self):
-        """Poll for new messages"""
+        """Poll for new messages from agent"""
         if not self.current_session or not self.blockchain:
             return
         
