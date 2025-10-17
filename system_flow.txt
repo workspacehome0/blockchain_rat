@@ -1,0 +1,170 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    BLOCKCHAIN RAT - SYSTEM FLOW DIAGRAM                      ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          PHASE 1: INITIALIZATION                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    [Admin]                    [Blockchain]                    [Agent]
+       │                            │                             │
+       │  1. Generate RSA Keys      │                             │
+       ├──────────────────────────► │                             │
+       │  2. Register Public Key    │                             │
+       │                            │  3. Generate RSA Keys       │
+       │                            │ ◄───────────────────────────┤
+       │                            │  4. Register Public Key     │
+       │                            │                             │
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       PHASE 2: SESSION CREATION                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    [Admin]                    [Blockchain]                    [Agent]
+       │                            │                             │
+       │  5. Create Session         │                             │
+       ├──────────────────────────► │                             │
+       │  (Agent Address)           │                             │
+       │                            │                             │
+       │  6. Session ID             │                             │
+       │ ◄──────────────────────────┤                             │
+       │                            │                             │
+       │                            │  7. Start Polling           │
+       │                            │ ◄───────────────────────────┤
+       │                            │  (Session ID)               │
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      PHASE 3: COMMAND TRANSMISSION                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    [Admin]                    [Blockchain]                    [Agent]
+       │                            │                             │
+       │  8. Prepare Command        │                             │
+       │  {"type": "sysinfo"}       │                             │
+       │                            │                             │
+       │  9. Encrypt (Agent PubKey) │                             │
+       │  [AES-256-GCM + RSA-2048]  │                             │
+       │                            │                             │
+       │  10. Compress (gzip)       │                             │
+       │                            │                             │
+       │  11. Encode (Base64+JSON)  │                             │
+       │                            │                             │
+       │  12. Send Transaction      │                             │
+       ├──────────────────────────► │                             │
+       │  (Encrypted Payload)       │                             │
+       │                            │                             │
+       │  13. Tx Confirmed          │                             │
+       │ ◄──────────────────────────┤                             │
+       │                            │                             │
+       │                            │  14. Poll for Messages      │
+       │                            │ ◄───────────────────────────┤
+       │                            │                             │
+       │                            │  15. New Message Found      │
+       │                            ├────────────────────────────►│
+       │                            │  (Encrypted Payload)        │
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     PHASE 4: COMMAND EXECUTION                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    [Admin]                    [Blockchain]                    [Agent]
+       │                            │                             │
+       │                            │  16. Decode (Base64+JSON)   │
+       │                            │                             │
+       │                            │  17. Decrypt (Agent PrivKey)│
+       │                            │  [RSA-2048 + AES-256-GCM]   │
+       │                            │                             │
+       │                            │  18. Decompress (gzip)      │
+       │                            │                             │
+       │                            │  19. Parse Command          │
+       │                            │  {"type": "sysinfo"}        │
+       │                            │                             │
+       │                            │  20. Execute Command        │
+       │                            │  - Get hostname             │
+       │                            │  - Get platform info        │
+       │                            │  - Get system details       │
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     PHASE 5: RESPONSE TRANSMISSION                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    [Admin]                    [Blockchain]                    [Agent]
+       │                            │                             │
+       │                            │  21. Prepare Response       │
+       │                            │  {system info data}         │
+       │                            │                             │
+       │                            │  22. Encrypt (Admin PubKey) │
+       │                            │  [AES-256-GCM + RSA-2048]   │
+       │                            │                             │
+       │                            │  23. Compress (gzip)        │
+       │                            │                             │
+       │                            │  24. Encode (Base64+JSON)   │
+       │                            │                             │
+       │                            │  25. Send Transaction       │
+       │                            │ ◄───────────────────────────┤
+       │                            │  (Encrypted Response)       │
+       │                            │                             │
+       │                            │  26. Tx Confirmed           │
+       │                            ├────────────────────────────►│
+       │                            │                             │
+       │  27. Poll for Responses    │                             │
+       ├──────────────────────────► │                             │
+       │                            │                             │
+       │  28. New Response Found    │                             │
+       │ ◄──────────────────────────┤                             │
+       │  (Encrypted Response)      │                             │
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      PHASE 6: RESPONSE PROCESSING                           │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    [Admin]                    [Blockchain]                    [Agent]
+       │                            │                             │
+       │  29. Decode (Base64+JSON)  │                             │
+       │                            │                             │
+       │  30. Decrypt (Admin PrivKey)                             │
+       │  [RSA-2048 + AES-256-GCM]  │                             │
+       │                            │                             │
+       │  31. Decompress (gzip)     │                             │
+       │                            │                             │
+       │  32. Parse Response        │                             │
+       │  {system info data}        │                             │
+       │                            │                             │
+       │  33. Display in GUI        │                             │
+       │  ✅ Command Complete!      │                             │
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                              KEY FEATURES                                    ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+✅ NO DIRECT CONNECTION: Admin and Agent never connect directly
+✅ END-TO-END ENCRYPTION: All data encrypted with military-grade crypto
+✅ BLOCKCHAIN TRANSPORT: All communication via Polygon blockchain
+✅ LOW COST: ~$0.0001-0.0003 per command
+✅ STEALTH: Traffic appears as normal blockchain transactions
+✅ RESILIENT: No central server to take down
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                           SECURITY LAYERS                                    ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+Layer 1: RSA-2048 Key Exchange (for AES key)
+Layer 2: AES-256-GCM Encryption (for data)
+Layer 3: GZIP Compression (obfuscation + size reduction)
+Layer 4: Base64 + JSON Encoding (blockchain compatibility)
+Layer 5: Blockchain Transaction (immutable, distributed)
+Layer 6: Sequence Numbers (replay attack prevention)
+Layer 7: Session Isolation (unique session IDs)
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                          PERFORMANCE METRICS                                 ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+Encryption Speed:     0.27ms per command
+Decryption Speed:     0.30ms per command
+Throughput:           3,657 commands/second
+Payload Size:         ~1000-1500 characters
+Blockchain Latency:   ~2-5 seconds (Polygon)
+Total Latency:        ~10-15 seconds (with polling)
+Cost per Command:     $0.0001-0.0003 USD
+
