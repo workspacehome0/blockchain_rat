@@ -1,0 +1,36 @@
+{
+  "name": "blockchain-rat",
+  "version": "1.0.0",
+  "description": "Blockchain-based Remote Administration Tool using Polygon network",
+  "main": "index.js",
+  "scripts": {
+    "install-all": "npm run install-contracts && npm run install-admin && npm run install-shared",
+    "install-contracts": "cd contracts && npm install",
+    "install-admin": "cd administrator && npm install",
+    "install-shared": "cd shared && npm install",
+    "build": "npm run build-contracts && npm run build-admin",
+    "build-contracts": "cd contracts && npx hardhat compile",
+    "build-admin": "cd administrator && npm run build",
+    "start-admin": "cd administrator && npm start",
+    "test": "npm run test-contracts && npm run test-shared",
+    "test-contracts": "cd contracts && npx hardhat test",
+    "test-shared": "cd shared && npm test",
+    "deploy-testnet": "cd contracts && npx hardhat run scripts/deploy.js --network polygon-mumbai",
+    "deploy-mainnet": "cd contracts && npx hardhat run scripts/deploy.js --network polygon"
+  },
+  "keywords": [
+    "blockchain",
+    "remote-administration",
+    "polygon",
+    "ethereum",
+    "security",
+    "c2"
+  ],
+  "author": "Manus AI",
+  "license": "MIT",
+  "workspaces": [
+    "contracts",
+    "administrator",
+    "shared"
+  ]
+}
