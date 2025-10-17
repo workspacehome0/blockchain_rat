@@ -52,11 +52,11 @@ class AdministratorGUI(QMainWindow):
         # Load configuration
         self.config = self.load_config()
         
-        # Load admin keys
-        self.load_keys()
-        
-        # Setup UI
+        # Setup UI first (before loading keys, which needs log_text)
         self.init_ui()
+        
+        # Load admin keys after UI is initialized
+        self.load_keys()
         
         # Setup timer for polling
         self.poll_timer = QTimer()
