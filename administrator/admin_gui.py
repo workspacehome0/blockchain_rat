@@ -348,6 +348,7 @@ class AdministratorGUI(QMainWindow):
     
     def connect_blockchain(self):
         """Connect to blockchain"""
+        self.log("[DEBUG] connect_blockchain() called")
         try:
             self.save_config()
             
@@ -392,44 +393,83 @@ class AdministratorGUI(QMainWindow):
     
     def create_new_session(self):
         """Create a new session"""
+        self.log("[DEBUG] create_new_session() called")
+        
         agent_address, ok = QInputDialog.getText(
-            self, 'New Session', 'Enter agent wallet address:'
+            self, 'New Session', 'Enter agent wallet address:\n\nExample: 0x1234...'
         )
         
         if ok and agent_address:
             try:
-                self.log(f"Creating session with agent: {agent_address}")
+                self.log(f"[DEBUG] User entered agent address: {agent_address}")
+                self.log(f"[DEBUG] Admin address: {self.blockchain.address}")
+                self.log(f"[DEBUG] Contract address: {self.blockchain.contract.address}")
+                self.log(f"[DEBUG] Calling blockchain.create_session()...")
+                
                 session_id = self.blockchain.create_session(agent_address)
-                self.log(f"Session created: {session_id}")
+                
+                self.log(f"[SUCCESS] Session created!")
+                self.log(f"[DEBUG] Session ID: {session_id}")
                 
                 # Refresh sessions
+                self.log(f"[DEBUG] Refreshing session list...")
                 self.refresh_sessions()
                 
-                QMessageBox.information(self, "Success", f"Session created: {session_id}")
+                QMessageBox.information(
+                    self, 
+                    "Success", 
+                    f"Session Created Successfully!\n\nSession ID:\n{session_id}\n\nAgent Address:\n{agent_address}\n\nYou can now start the agent with:\npython agent.py --session {session_id}"
+                )
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to create session: {str(e)}")
-                self.log(f"Session creation error: {e}")
+                import traceback
+                error_details = traceback.format_exc()
+                self.log(f"[ERROR] Session creation failed: {e}")
+                self.log(f"[ERROR] Full traceback:\n{error_details}")
+                QMessageBox.critical(
+                    self, 
+                    "Error", 
+                    f"Failed to create session:\n\n{str(e)}\n\nCheck the log for details."
+                )
+        else:
+            self.log("[DEBUG] Session creation cancelled by user")
     
     def refresh_sessions(self):
         """Refresh session list"""
+        self.log("[DEBUG] refresh_sessions() called")
+        
         if not self.blockchain:
+            self.log("[DEBUG] No blockchain connection, skipping refresh")
             return
         
         try:
+            self.log(f"[DEBUG] Getting sessions for admin: {self.blockchain.address}")
             session_ids = self.blockchain.get_admin_sessions()
+            self.log(f"[DEBUG] Found {len(session_ids)} session(s)")
+            
             self.session_list.clear()
             self.sessions = {}
             
-            for session_id in session_ids:
+            for i, session_id in enumerate(session_ids, 1):
+                self.log(f"[DEBUG] Loading session {i}/{len(session_ids)}: {session_id}")
                 session = self.blockchain.get_session(session_id)
                 self.sessions[session_id] = session
                 
+                self.log(f"[DEBUG] Session details: admin={session['admin']}, agent={session['agent']}, active={session['active']}")
+                
                 status = "Active" if session['active'] else "Inactive"
-                self.session_list.addItem(f"{session_id[:16]}... ({status})")
+                display_text = f"{session_id[:16]}... ({status})"
+                self.session_list.addItem(display_text)
+                self.log(f"[DEBUG] Added to list: {display_text}")
             
-            self.log(f"Loaded {len(session_ids)} sessions")
+            self.log(f"[SUCCESS] Loaded {len(session_ids)} session(s)")
+            
+            if len(session_ids) == 0:
+                self.log("[INFO] No sessions found. Click 'New Session' to create one.")
         except Exception as e:
-            self.log(f"Error refreshing sessions: {e}")
+            import traceback
+            error_details = traceback.format_exc()
+            self.log(f"[ERROR] Error refreshing sessions: {e}")
+            self.log(f"[ERROR] Full traceback:\n{error_details}")
     
     def on_session_selected(self, item):
         """Handle session selection"""
