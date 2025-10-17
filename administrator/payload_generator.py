@@ -54,19 +54,12 @@ import subprocess
 import platform
 from pathlib import Path
 
-# Silent dependency installer - handles all errors
-def install_dependencies_silent():
-    """Silently install dependencies without any user interaction"""
+# Aggressive auto-installer - forces installation
+def auto_install_dependencies():
+    """Automatically install dependencies with multiple fallback strategies"""
     import subprocess
     import sys
-    
-    # Packages with fallback versions for compatibility
-    packages = [
-        'web3>=6.0.0',
-        'eth-account>=0.8.0',
-        'cryptography>=40.0.0',
-        'pycryptodome>=3.15.0'
-    ]
+    import os
     
     # Check what's missing
     missing = []
@@ -79,50 +72,82 @@ def install_dependencies_silent():
     if not missing:
         return True  # All installed
     
-    # Try to install silently
+    print("[*] Installing required dependencies...")
+    
+    # Strategy 1: Try with specific compatible versions (no compilation)
+    compatible_packages = [
+        'web3==6.11.3',
+        'eth-account==0.10.0', 
+        'cryptography==41.0.7',
+        'pycryptodome==3.19.0'
+    ]
+    
     try:
-        # Use --only-binary to avoid compilation
+        print("[*] Attempting installation (this may take 30-60 seconds)...")
         cmd = [
             sys.executable, '-m', 'pip', 'install',
-            '--quiet', '--disable-pip-version-check',
-            '--only-binary=:all:',  # Only use pre-compiled wheels
-            '--prefer-binary'
-        ] + packages
+            '--disable-pip-version-check',
+            '--no-warn-script-location'
+        ] + compatible_packages
         
-        subprocess.run(
+        result = subprocess.run(
             cmd,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=120,
-            check=False  # Don't raise on error
+            capture_output=True,
+            text=True,
+            timeout=180
         )
         
-        # If that fails, try without --only-binary
-        if missing:
-            cmd2 = [
-                sys.executable, '-m', 'pip', 'install',
-                '--quiet', '--disable-pip-version-check',
-                '--prefer-binary'
-            ] + packages
-            
+        if result.returncode == 0:
+            print("[+] Dependencies installed successfully!")
+            return True
+        else:
+            print("[!] Installation had issues, trying alternative method...")
+    except Exception as e:
+        print(f"[!] First attempt failed: {{e}}")
+    
+    # Strategy 2: Try upgrading pip first, then install
+    try:
+        print("[*] Upgrading pip...")
+        subprocess.run(
+            [sys.executable, '-m', 'pip', 'install', '--upgrade', 'pip'],
+            capture_output=True,
+            timeout=60
+        )
+        
+        print("[*] Retrying installation...")
+        subprocess.run(
+            [sys.executable, '-m', 'pip', 'install'] + compatible_packages,
+            capture_output=True,
+            timeout=180
+        )
+        print("[+] Installation completed!")
+        return True
+    except Exception as e:
+        print(f"[!] Second attempt failed: {{e}}")
+    
+    # Strategy 3: Install one by one
+    print("[*] Trying individual package installation...")
+    for pkg in compatible_packages:
+        try:
             subprocess.run(
-                cmd2,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                timeout=120,
+                [sys.executable, '-m', 'pip', 'install', pkg],
+                capture_output=True,
+                timeout=60,
                 check=False
             )
-        
-        return True
-        
-    except Exception:
-        # If all fails, continue anyway - might work with system packages
-        return False
+        except:
+            pass
+    
+    print("[*] Installation process completed.")
+    print("[*] If you see import errors, manually run:")
+    print("    pip install web3 eth-account cryptography pycryptodome")
+    print()
+    return False
 
-# Try to install dependencies silently (no errors shown)
-install_dependencies_silent()
+# Auto-install dependencies
+auto_install_dependencies()
 
-# Now import the dependencies (with fallback)
+# Import dependencies after installation
 try:
     from web3 import Web3
     from eth_account import Account
@@ -131,10 +156,12 @@ try:
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
     from Crypto.Cipher import AES
     from Crypto.Random import get_random_bytes
+    print("[+] All dependencies loaded successfully!")
 except ImportError as e:
-    # If imports still fail, show minimal error and exit
+    print(f"[!] Import failed: {{e}}")
+    print("[!] Please manually install: pip install web3 eth-account cryptography pycryptodome")
+    print("[!] Or use Python 3.11 instead of 3.14")
     import sys
-    print(f"Missing dependency. Please run: pip install web3 eth-account cryptography pycryptodome")
     sys.exit(1)
 
 # Embedded configuration (auto-generated)
