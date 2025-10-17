@@ -1,0 +1,7 @@
+{
+  "rpc_url": "https://polygon-rpc.com",
+  "contract_address": "0x5031fB08D66ea1181eaE1d89f6E960a4f26c3280",
+  "private_key": "agent_wallet_private_key_without_0x_prefix",
+  "poll_interval": 10
+}
+
