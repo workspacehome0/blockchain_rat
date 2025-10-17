@@ -590,8 +590,8 @@ Agent Messages: {session['agent_seq_num']}
             # Get AgentRegistered events
             try:
                 event_filter = self.blockchain.contract.events.AgentRegistered.create_filter(
-                    fromBlock=self.last_checked_block + 1,
-                    toBlock=current_block
+                    from_block=self.last_checked_block + 1,
+                    to_block=current_block
                 )
                 
                 events = event_filter.get_all_entries()
