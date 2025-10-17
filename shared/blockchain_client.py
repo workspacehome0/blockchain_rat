@@ -220,12 +220,26 @@ class BlockchainClient:
         # Extract session ID from logs
         for log in receipt['logs']:
             try:
+                # Try web3.py v6+ method
                 event = self.contract.events.SessionCreated().process_log(log)
-                return event['args']['sessionId'].hex()
-            except:
-                continue
+                session_id = event['args']['sessionId']
+                if isinstance(session_id, bytes):
+                    return '0x' + session_id.hex()
+                else:
+                    return session_id.hex() if hasattr(session_id, 'hex') else str(session_id)
+            except Exception as e:
+                # Try alternative method for different web3 versions
+                try:
+                    if 'topics' in log and len(log['topics']) > 0:
+                        # SessionCreated event signature
+                        if log['topics'][0].hex() == '0x' + self.w3.keccak(text='SessionCreated(bytes32,address,address)').hex():
+                            # Session ID is the first indexed parameter (topics[1])
+                            session_id = log['topics'][1]
+                            return '0x' + session_id.hex() if isinstance(session_id, bytes) else session_id
+                except:
+                    continue
         
-        raise Exception("Failed to extract session ID from transaction")
+        raise Exception("Failed to extract session ID from transaction. Check transaction receipt.")
     
     def send_message(self, session_id, encrypted_payload, sequence_number):
         """Send a message in a session"""
