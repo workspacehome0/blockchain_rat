@@ -187,8 +187,9 @@ class BlockchainClient:
         # Sign transaction
         signed_txn = self.w3.eth.account.sign_transaction(transaction, self.account.key)
         
-        # Send transaction
-        tx_hash = self.w3.eth.send_raw_transaction(signed_txn.rawTransaction)
+        # Send transaction (compatible with web3.py v6+)
+        raw_transaction = signed_txn.raw_transaction if hasattr(signed_txn, 'raw_transaction') else signed_txn.rawTransaction
+        tx_hash = self.w3.eth.send_raw_transaction(raw_transaction)
         
         print(f"Transaction sent: {tx_hash.hex()}")
         
